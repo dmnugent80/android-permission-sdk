@@ -20,5 +20,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "AndroidPermissionSDK"
-include(":app")
-include(":AndroidPermissionSDK")
+include(":sample")
+include(":permissionsdk")
