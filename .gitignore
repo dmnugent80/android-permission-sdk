@@ -1,0 +1,47 @@
+# IntelliJ / Android Studio
+*.iml
+.idea/
+!.idea/codeStyles/
+!.idea/inspectionProfiles/
+
+# Gradle
+.gradle/
+**/build/
+
+# Local config
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin / Java
+*.class
+
+# Logs
+*.log
+
+# Keystore / signing
+*.jks
+*.keystore
+
+# Generated files
+/bin/
+/out/
+
+# Firebase / Google services, only ignore if you do NOT want sample app config committed
+# google-services.json
+
+# Mac/Linux temp files
+*.swp
+*.swo
+*~
+
+# Kover / coverage / test artifacts
+coverage/
+*.ec
