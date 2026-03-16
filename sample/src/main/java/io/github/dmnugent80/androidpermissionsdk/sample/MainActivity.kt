@@ -25,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -35,7 +36,7 @@ import io.github.dmnugent80.androidpermissionsdk.api.PermissionResult
 import io.github.dmnugent80.androidpermissionsdk.api.PermissionStatus
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private val sdk by lazy { AndroidPermissionSdkFactory.create(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
