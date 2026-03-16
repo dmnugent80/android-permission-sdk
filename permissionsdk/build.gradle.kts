@@ -44,7 +44,6 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.ktx)
-    implementation(libs.androidx.fragment.ktx)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)

@@ -96,7 +96,6 @@ AndroidPermissionSDK/
       api/                           // Public SDK contract + facade + factory
       core/                          // Internal interfaces and business rules
       platform/                      // Android framework implementations
-      internal/                      // Hidden request fragment
     src/test/                        // Unit tests (core logic)
     src/androidTest/                 // Instrumentation smoke tests
   sample/                            // Compose sample app
@@ -116,8 +115,6 @@ The SDK uses layered package architecture inside one publishable library module:
   - Business rules: `PermissionStatusResolver`, `PermissionResultResolver`, `PermanentDenialPolicy`
 - `platform` layer:
   - Android adapters for permission checks, rationale checks, SharedPreferences persistence, settings intents, and request coordination
-- `internal` layer:
-  - Hidden `PermissionRequestFragment` used by the request coordinator
 
 Dependency direction is one-way:
 
@@ -128,10 +125,9 @@ Dependency direction is one-way:
 
 ## Important Runtime Notes
 
-- Request flow is backed by a hidden Fragment (`ActivityResultContracts.RequestMultiplePermissions`).
-- Current coordinator implementation requires a `FragmentActivity` at runtime for `request(...)`.
-  - If a non-`FragmentActivity` is passed, the result is `PermissionResult.Cancelled`.
-- `Cancelled` can also occur if request state is already saved or if a request is already pending.
+- Request flow is backed by `ActivityResultContracts.RequestMultiplePermissions` via `ComponentActivity.activityResultRegistry`.
+- `request(...)` works with `ComponentActivity` (including `FragmentActivity` subclasses).
+- `Cancelled` can occur when the launcher cannot be registered or the request cannot be completed.
 
 ## Testing
 

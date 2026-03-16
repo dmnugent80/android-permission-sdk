@@ -7,7 +7,7 @@ import io.github.dmnugent80.androidpermissionsdk.core.PermanentDenialPolicy
 import io.github.dmnugent80.androidpermissionsdk.platform.AndroidAppSettingsOpener
 import io.github.dmnugent80.androidpermissionsdk.platform.AndroidPermissionChecker
 import io.github.dmnugent80.androidpermissionsdk.platform.AndroidRationaleChecker
-import io.github.dmnugent80.androidpermissionsdk.platform.FragmentPermissionRequestCoordinator
+import io.github.dmnugent80.androidpermissionsdk.platform.ActivityResultPermissionRequestCoordinator
 import io.github.dmnugent80.androidpermissionsdk.platform.SharedPrefsPermissionEducationStore
 
 /**
@@ -35,7 +35,7 @@ object AndroidPermissionSdkFactory {
 
         return DefaultAndroidPermissionSdk(
             educationStore = educationStore,
-            requestCoordinator = FragmentPermissionRequestCoordinator(),
+            requestCoordinator = ActivityResultPermissionRequestCoordinator(),
             appSettingsOpener = AndroidAppSettingsOpener(appContext),
             statusResolver = statusResolver,
             resultResolver = resultResolver
