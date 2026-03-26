@@ -23,11 +23,10 @@ internal class PermissionResultResolver(
             return PermissionResult.Granted
         }
 
-        val hasHistory =
-            educationStore.wasEducationShown(permission) || educationStore.wasRequested(permission)
+        val hasRequestHistory = educationStore.wasRequested(permission)
         val shouldShowRationale = rationaleChecker.shouldShowRationale(activity, permission)
 
-        return if (permanentDenialPolicy.isPermanentlyDenied(hasHistory, shouldShowRationale)) {
+        return if (permanentDenialPolicy.isPermanentlyDenied(hasRequestHistory, shouldShowRationale)) {
             PermissionResult.PermanentlyDenied
         } else {
             PermissionResult.Denied

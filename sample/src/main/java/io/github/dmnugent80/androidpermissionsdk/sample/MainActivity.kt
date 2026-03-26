@@ -1,6 +1,5 @@
 package io.github.dmnugent80.androidpermissionsdk.sample
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,34 +17,32 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import io.github.dmnugent80.androidpermissionsdk.api.AndroidPermissionSdk
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.dmnugent80.androidpermissionsdk.api.AndroidPermissionSdkFactory
-import io.github.dmnugent80.androidpermissionsdk.api.AppPermission
 import io.github.dmnugent80.androidpermissionsdk.api.PermissionResult
 import io.github.dmnugent80.androidpermissionsdk.api.PermissionStatus
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val sdk by lazy { AndroidPermissionSdkFactory.create(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val activity = this
         setContent {
+            val permissionViewModel: PermissionSampleViewModel = viewModel(
+                factory = PermissionSampleViewModelFactory(sdk)
+            )
             MaterialTheme {
                 Scaffold { padding ->
                     PermissionSampleScreen(
-                        sdk = sdk,
-                        activity = this,
+                        viewModel = permissionViewModel,
+                        activity = activity,
                         modifier = Modifier.padding(padding)
                     )
                 }
@@ -56,36 +53,18 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun PermissionSampleScreen(
-    sdk: AndroidPermissionSdk,
+    viewModel: PermissionSampleViewModel,
     activity: ComponentActivity,
     modifier: Modifier = Modifier
 ) {
-    var cameraStatus by remember {
-        mutableStateOf<PermissionStatus>(PermissionStatus.NotRequestedYet)
-    }
-    var locationStatus by remember {
-        mutableStateOf<PermissionStatus>(PermissionStatus.NotRequestedYet)
-    }
-    var cameraEducation by remember { mutableStateOf(true) }
-    var locationEducation by remember { mutableStateOf(true) }
-    var cameraLastResult by remember { mutableStateOf<PermissionResult?>(null) }
-    var locationLastResult by remember { mutableStateOf<PermissionResult?>(null) }
-
-    val coroutineScope = rememberCoroutineScope()
+    val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    fun refreshAll() {
-        cameraStatus = sdk.getStatus(AppPermission.Camera, activity)
-        locationStatus = sdk.getStatus(AppPermission.FineLocation, activity)
-        cameraEducation = sdk.shouldShowEducation(AppPermission.Camera)
-        locationEducation = sdk.shouldShowEducation(AppPermission.FineLocation)
-    }
-
-    DisposableEffect(lifecycleOwner) {
-        refreshAll()
+    DisposableEffect(lifecycleOwner, viewModel, activity) {
+        viewModel.refreshAll(activity)
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                refreshAll()
+                viewModel.refreshAll(activity)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -107,53 +86,30 @@ private fun PermissionSampleScreen(
 
         PermissionSection(
             title = "Camera",
-            status = cameraStatus,
-            shouldShowEducation = cameraEducation,
-            lastResult = cameraLastResult,
-            onRefresh = { refreshAll() },
-            onMarkEducationShown = {
-                sdk.markEducationShown(AppPermission.Camera)
-                refreshAll()
-            },
-            onRequest = {
-                coroutineScope.launch {
-                    cameraLastResult = sdk.request(AppPermission.Camera, activity)
-                    refreshAll()
-                }
-            },
-            onOpenSettings = { sdk.openAppSettings(activity) }
+            status = uiState.camera.status,
+            shouldShowEducation = uiState.camera.shouldShowEducation,
+            lastResult = uiState.camera.lastResult,
+            onRefresh = { viewModel.refreshAll(activity) },
+            onMarkEducationShown = viewModel::markCameraEducationShown,
+            onRequest = { viewModel.requestCamera(activity) },
+            onOpenSettings = { viewModel.openSettings(activity) }
         )
 
         PermissionSection(
             title = "Fine Location",
-            status = locationStatus,
-            shouldShowEducation = locationEducation,
-            lastResult = locationLastResult,
-            onRefresh = { refreshAll() },
-            onMarkEducationShown = {
-                sdk.markEducationShown(AppPermission.FineLocation)
-                refreshAll()
-            },
-            onRequest = {
-                coroutineScope.launch {
-                    locationLastResult = sdk.request(AppPermission.FineLocation, activity)
-                    refreshAll()
-                }
-            },
-            onOpenSettings = { sdk.openAppSettings(activity) }
+            status = uiState.location.status,
+            shouldShowEducation = uiState.location.shouldShowEducation,
+            lastResult = uiState.location.lastResult,
+            onRefresh = { viewModel.refreshAll(activity) },
+            onMarkEducationShown = viewModel::markLocationEducationShown,
+            onRequest = { viewModel.requestLocation(activity) },
+            onOpenSettings = { viewModel.openSettings(activity) }
         )
 
         Button(
             modifier = Modifier.fillMaxWidth(),
             onClick = {
-                activity
-                    .getSharedPreferences(SDK_DEBUG_PREFS_NAME, Context.MODE_PRIVATE)
-                    .edit()
-                    .clear()
-                    .apply()
-                cameraLastResult = null
-                locationLastResult = null
-                refreshAll()
+                viewModel.clearDebugState(context = activity, activity = activity)
             }
         ) {
             Text("Clear debug state")
@@ -181,6 +137,12 @@ private fun PermissionSection(
         ) {
             Text(text = title, style = MaterialTheme.typography.titleMedium)
             Text(text = "Status: ${status.toDisplayText()}")
+            status.toExplanationText()?.let { explanation ->
+                Text(
+                    text = explanation,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             Text(text = "Should show education: $shouldShowEducation")
             Text(text = "Last result: ${lastResult?.toDisplayText() ?: "None"}")
 
@@ -223,4 +185,14 @@ private fun PermissionResult.toDisplayText(): String {
     }
 }
 
-private const val SDK_DEBUG_PREFS_NAME = "android_permission_sdk_flags"
+internal fun PermissionStatus.toExplanationText(): String? {
+    return when (this) {
+        PermissionStatus.Denied -> {
+            "Denied means not currently granted. This can happen after an explicit deny, " +
+                "one-time grant expiration, or a settings revoke."
+        }
+        PermissionStatus.Granted,
+        PermissionStatus.NotRequestedYet,
+        PermissionStatus.PermanentlyDenied -> null
+    }
+}

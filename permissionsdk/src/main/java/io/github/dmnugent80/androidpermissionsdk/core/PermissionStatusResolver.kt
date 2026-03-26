@@ -15,14 +15,17 @@ internal class PermissionStatusResolver(
             return PermissionStatus.Granted
         }
 
-        val hasHistory =
-            educationStore.wasEducationShown(permission) || educationStore.wasRequested(permission)
-        if (!hasHistory) {
+        val hasRequestHistory = educationStore.wasRequested(permission)
+        if (!hasRequestHistory) {
             return PermissionStatus.NotRequestedYet
         }
 
         val shouldShowRationale = rationaleChecker.shouldShowRationale(activity, permission)
-        return if (permanentDenialPolicy.isPermanentlyDenied(hasHistory, shouldShowRationale)) {
+        val isMarkedPermanentlyDenied = educationStore.wasPermanentlyDenied(permission)
+        return if (
+            isMarkedPermanentlyDenied &&
+            permanentDenialPolicy.isPermanentlyDenied(hasRequestHistory, shouldShowRationale)
+        ) {
             PermissionStatus.PermanentlyDenied
         } else {
             PermissionStatus.Denied

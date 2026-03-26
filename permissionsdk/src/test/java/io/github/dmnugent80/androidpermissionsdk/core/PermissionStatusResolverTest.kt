@@ -40,6 +40,18 @@ class PermissionStatusResolverTest {
     }
 
     @Test
+    fun `returns not requested yet when only education history exists`() {
+        checker.granted = false
+        educationStore.educationShown = true
+        educationStore.requested = false
+        rationaleChecker.shouldShow = false
+
+        val status = resolver.resolve(AppPermission.Camera, activity)
+
+        assertEquals(PermissionStatus.NotRequestedYet, status)
+    }
+
+    @Test
     fun `returns denied when there is history and rationale is true`() {
         checker.granted = false
         educationStore.requested = true
@@ -51,9 +63,22 @@ class PermissionStatusResolverTest {
     }
 
     @Test
+    fun `returns denied when request history exists and rationale is false but not marked permanent`() {
+        checker.granted = false
+        educationStore.requested = true
+        educationStore.permanentlyDenied = false
+        rationaleChecker.shouldShow = false
+
+        val status = resolver.resolve(AppPermission.Camera, activity)
+
+        assertEquals(PermissionStatus.Denied, status)
+    }
+
+    @Test
     fun `returns permanently denied when there is history and rationale is false`() {
         checker.granted = false
         educationStore.requested = true
+        educationStore.permanentlyDenied = true
         rationaleChecker.shouldShow = false
 
         val status = resolver.resolve(AppPermission.Camera, activity)
@@ -80,6 +105,7 @@ class PermissionStatusResolverTest {
     private class FakeEducationStore : PermissionEducationStore {
         var educationShown: Boolean = false
         var requested: Boolean = false
+        var permanentlyDenied: Boolean = false
 
         override fun wasEducationShown(permission: AppPermission): Boolean = educationShown
 
@@ -91,6 +117,12 @@ class PermissionStatusResolverTest {
 
         override fun markRequested(permission: AppPermission) {
             requested = true
+        }
+
+        override fun wasPermanentlyDenied(permission: AppPermission): Boolean = permanentlyDenied
+
+        override fun setPermanentlyDenied(permission: AppPermission, permanentlyDenied: Boolean) {
+            this.permanentlyDenied = permanentlyDenied
         }
     }
 }

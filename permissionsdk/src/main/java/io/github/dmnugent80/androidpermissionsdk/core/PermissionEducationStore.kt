@@ -10,4 +10,8 @@ internal interface PermissionEducationStore {
     fun wasRequested(permission: AppPermission): Boolean
 
     fun markRequested(permission: AppPermission)
+
+    fun wasPermanentlyDenied(permission: AppPermission): Boolean
+
+    fun setPermanentlyDenied(permission: AppPermission, permanentlyDenied: Boolean)
 }

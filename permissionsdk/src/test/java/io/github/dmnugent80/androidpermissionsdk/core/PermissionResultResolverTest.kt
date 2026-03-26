@@ -69,6 +69,22 @@ class PermissionResultResolverTest {
         assertEquals(PermissionResult.PermanentlyDenied, result)
     }
 
+    @Test
+    fun `returns denied when not granted and only education history exists`() {
+        checker.granted = false
+        educationStore.educationShown = true
+        educationStore.requested = false
+        rationaleChecker.shouldShow = false
+
+        val result = resolver.resolve(
+            AppPermission.Camera,
+            activity,
+            mapOf(android.Manifest.permission.CAMERA to false)
+        )
+
+        assertEquals(PermissionResult.Denied, result)
+    }
+
     private class FakePermissionChecker : PermissionChecker {
         var granted: Boolean = false
 
@@ -88,6 +104,7 @@ class PermissionResultResolverTest {
     private class FakeEducationStore : PermissionEducationStore {
         var educationShown: Boolean = false
         var requested: Boolean = false
+        var permanentlyDenied: Boolean = false
 
         override fun wasEducationShown(permission: AppPermission): Boolean = educationShown
 
@@ -99,6 +116,12 @@ class PermissionResultResolverTest {
 
         override fun markRequested(permission: AppPermission) {
             requested = true
+        }
+
+        override fun wasPermanentlyDenied(permission: AppPermission): Boolean = permanentlyDenied
+
+        override fun setPermanentlyDenied(permission: AppPermission, permanentlyDenied: Boolean) {
+            this.permanentlyDenied = permanentlyDenied
         }
     }
 }

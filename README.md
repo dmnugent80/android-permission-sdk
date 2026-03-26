@@ -76,9 +76,9 @@ if (result == PermissionResult.PermanentlyDenied) {
 `PermissionStatus` (current effective state):
 
 - `Granted`: permission is currently granted
-- `NotRequestedYet`: denied and no education/request history
-- `Denied`: denied, history exists, and rationale is still true
-- `PermanentlyDenied`: denied, history exists, and rationale is false
+- `NotRequestedYet`: no request history for that permission
+- `Denied`: permission is currently not granted, but there is no recorded permanent-denial outcome (for example: explicit deny, one-time grant expiration, or settings revoke)
+- `PermanentlyDenied`: last denied request was recorded as permanent denial and rationale is still false
 
 `PermissionResult` (result of `request(...)`):
 
@@ -128,6 +128,7 @@ Dependency direction is one-way:
 - Request flow is backed by `ActivityResultContracts.RequestMultiplePermissions` via `ComponentActivity.activityResultRegistry`.
 - `request(...)` works with `ComponentActivity` (including `FragmentActivity` subclasses).
 - `Cancelled` can occur when the launcher cannot be registered or the request cannot be completed.
+- One-time grants are treated as `Granted` while active and `Denied` after expiration/revocation (not `PermanentlyDenied` unless a permanent denial is explicitly recorded by a denied request flow).
 
 ## Testing
 

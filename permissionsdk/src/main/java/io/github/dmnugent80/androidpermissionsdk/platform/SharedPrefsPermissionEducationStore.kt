@@ -28,12 +28,26 @@ internal class SharedPrefsPermissionEducationStore(context: Context) : Permissio
             .apply()
     }
 
+    override fun wasPermanentlyDenied(permission: AppPermission): Boolean {
+        return sharedPreferences.getBoolean(permanentDeniedKey(permission), false)
+    }
+
+    override fun setPermanentlyDenied(permission: AppPermission, permanentlyDenied: Boolean) {
+        sharedPreferences.edit()
+            .putBoolean(permanentDeniedKey(permission), permanentlyDenied)
+            .apply()
+    }
+
     private fun educationKey(permission: AppPermission): String {
         return "education_shown_${permission.storageKey}"
     }
 
     private fun requestedKey(permission: AppPermission): String {
         return "request_attempted_${permission.storageKey}"
+    }
+
+    private fun permanentDeniedKey(permission: AppPermission): String {
+        return "permanent_denial_${permission.storageKey}"
     }
 
     internal companion object {

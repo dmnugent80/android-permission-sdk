@@ -20,7 +20,14 @@ class DefaultAndroidPermissionSdk internal constructor(
 ) : AndroidPermissionSdk {
 
     override fun getStatus(permission: AppPermission, activity: Activity): PermissionStatus {
-        return statusResolver.resolve(permission, activity)
+        val status = statusResolver.resolve(permission, activity)
+        if (
+            status != PermissionStatus.PermanentlyDenied &&
+            educationStore.wasPermanentlyDenied(permission)
+        ) {
+            educationStore.setPermanentlyDenied(permission, permanentlyDenied = false)
+        }
+        return status
     }
 
     override fun shouldShowEducation(permission: AppPermission): Boolean {
@@ -41,7 +48,18 @@ class DefaultAndroidPermissionSdk internal constructor(
         }
 
         educationStore.markRequested(permission)
-        return resultResolver.resolve(permission, activity, requestResult)
+        val result = resultResolver.resolve(permission, activity, requestResult)
+        when (result) {
+            PermissionResult.PermanentlyDenied -> {
+                educationStore.setPermanentlyDenied(permission, permanentlyDenied = true)
+            }
+            PermissionResult.Granted,
+            PermissionResult.Denied -> {
+                educationStore.setPermanentlyDenied(permission, permanentlyDenied = false)
+            }
+            PermissionResult.Cancelled -> Unit
+        }
+        return result
     }
 
     override fun openAppSettings(activity: Activity) {
