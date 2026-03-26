@@ -2,15 +2,13 @@ package io.github.dmnugent80.androidpermissionsdk.api
 
 import android.app.Activity
 import androidx.activity.ComponentActivity
-import io.github.dmnugent80.androidpermissionsdk.core.AppSettingsOpener
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionChecker
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionEducationStore
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionRequestCoordinator
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionResultResolver
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionStatusResolver
-import io.github.dmnugent80.androidpermissionsdk.core.PermanentDenialPolicy
-import io.github.dmnugent80.androidpermissionsdk.core.RationaleChecker
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,85 +19,82 @@ class DefaultAndroidPermissionSdkTest {
     private val componentActivity: ComponentActivity = mock(ComponentActivity::class.java)
 
     @Test
-    fun `request marks permanent denied when request result resolves to permanently denied`() = runBlocking {
+    fun `request returns cancelled and does not mark requested when request map is empty`() =
+        runBlocking {
+            val educationStore = FakeEducationStore()
+            val sdk = createSdk(
+                educationStore = educationStore,
+                granted = false,
+                requestResult = emptyMap()
+            )
+
+            val result = sdk.request(AppPermission.Camera, componentActivity)
+
+            assertEquals(PermissionResult.Cancelled, result)
+            assertFalse(educationStore.wasRequested(AppPermission.Camera))
+        }
+
+    @Test
+    fun `request returns denied and marks requested when permission is not granted`() = runBlocking {
         val educationStore = FakeEducationStore()
-        val checker = FakePermissionChecker(granted = false)
-        val rationaleChecker = FakeRationaleChecker(shouldShow = false)
         val sdk = createSdk(
             educationStore = educationStore,
-            checker = checker,
-            rationaleChecker = rationaleChecker,
+            granted = false,
             requestResult = mapOf(android.Manifest.permission.CAMERA to false)
         )
 
-        sdk.request(AppPermission.Camera, componentActivity)
+        val result = sdk.request(AppPermission.Camera, componentActivity)
 
-        assertTrue(educationStore.wasPermanentlyDenied(AppPermission.Camera))
+        assertEquals(PermissionResult.Denied, result)
+        assertTrue(educationStore.wasRequested(AppPermission.Camera))
     }
 
     @Test
-    fun `request clears permanent denied when request result resolves to granted`() = runBlocking {
+    fun `request returns granted and marks requested when permission is granted`() = runBlocking {
         val educationStore = FakeEducationStore()
-        educationStore.setPermanentlyDenied(AppPermission.Camera, true)
-        val checker = FakePermissionChecker(granted = true)
-        val rationaleChecker = FakeRationaleChecker(shouldShow = false)
         val sdk = createSdk(
             educationStore = educationStore,
-            checker = checker,
-            rationaleChecker = rationaleChecker,
+            granted = true,
             requestResult = mapOf(android.Manifest.permission.CAMERA to true)
         )
 
-        sdk.request(AppPermission.Camera, componentActivity)
+        val result = sdk.request(AppPermission.Camera, componentActivity)
 
-        assertFalse(educationStore.wasPermanentlyDenied(AppPermission.Camera))
+        assertEquals(PermissionResult.Granted, result)
+        assertTrue(educationStore.wasRequested(AppPermission.Camera))
     }
 
     @Test
-    fun `getStatus clears stale permanent denied marker when status is not permanently denied`() {
-        val educationStore = FakeEducationStore()
-        educationStore.markRequested(AppPermission.Camera)
-        educationStore.setPermanentlyDenied(AppPermission.Camera, true)
-        val checker = FakePermissionChecker(granted = false)
-        val rationaleChecker = FakeRationaleChecker(shouldShow = true)
+    fun `getStatus returns denied when request history exists and permission is not granted`() {
+        val educationStore = FakeEducationStore().apply {
+            markRequested(AppPermission.Camera)
+        }
         val sdk = createSdk(
             educationStore = educationStore,
-            checker = checker,
-            rationaleChecker = rationaleChecker
+            granted = false,
+            requestResult = emptyMap()
         )
 
-        sdk.getStatus(AppPermission.Camera, activity)
+        val status = sdk.getStatus(AppPermission.Camera, activity)
 
-        assertFalse(educationStore.wasPermanentlyDenied(AppPermission.Camera))
+        assertEquals(PermissionStatus.Denied, status)
     }
 
     private fun createSdk(
         educationStore: FakeEducationStore,
-        checker: FakePermissionChecker,
-        rationaleChecker: FakeRationaleChecker,
-        requestResult: Map<String, Boolean> = emptyMap()
+        granted: Boolean,
+        requestResult: Map<String, Boolean>
     ): DefaultAndroidPermissionSdk {
-        val policy = PermanentDenialPolicy()
+        val checker = FakePermissionChecker(granted = granted)
         val statusResolver = PermissionStatusResolver(
             permissionChecker = checker,
-            rationaleChecker = rationaleChecker,
-            educationStore = educationStore,
-            permanentDenialPolicy = policy
+            educationStore = educationStore
         )
-        val resultResolver = PermissionResultResolver(
-            permissionChecker = checker,
-            rationaleChecker = rationaleChecker,
-            educationStore = educationStore,
-            permanentDenialPolicy = policy
-        )
-
-        val requestCoordinator = FakeRequestCoordinator(requestResult)
-        val appSettingsOpener = FakeAppSettingsOpener()
+        val resultResolver = PermissionResultResolver(permissionChecker = checker)
 
         return DefaultAndroidPermissionSdk(
             educationStore = educationStore,
-            requestCoordinator = requestCoordinator,
-            appSettingsOpener = appSettingsOpener,
+            requestCoordinator = FakeRequestCoordinator(requestResult),
             statusResolver = statusResolver,
             resultResolver = resultResolver
         )
@@ -108,7 +103,6 @@ class DefaultAndroidPermissionSdkTest {
     private class FakeEducationStore : PermissionEducationStore {
         private val educationShown = mutableMapOf<AppPermission, Boolean>()
         private val requested = mutableMapOf<AppPermission, Boolean>()
-        private val permanentlyDenied = mutableMapOf<AppPermission, Boolean>()
 
         override fun wasEducationShown(permission: AppPermission): Boolean {
             return educationShown[permission] ?: false
@@ -125,14 +119,6 @@ class DefaultAndroidPermissionSdkTest {
         override fun markRequested(permission: AppPermission) {
             requested[permission] = true
         }
-
-        override fun wasPermanentlyDenied(permission: AppPermission): Boolean {
-            return permanentlyDenied[permission] ?: false
-        }
-
-        override fun setPermanentlyDenied(permission: AppPermission, permanentlyDenied: Boolean) {
-            this.permanentlyDenied[permission] = permanentlyDenied
-        }
     }
 
     private class FakeRequestCoordinator(
@@ -146,23 +132,11 @@ class DefaultAndroidPermissionSdkTest {
         }
     }
 
-    private class FakeAppSettingsOpener : AppSettingsOpener {
-        override fun open(activity: Activity) = Unit
-    }
-
     private class FakePermissionChecker(
         private val granted: Boolean
     ) : PermissionChecker {
         override fun isGranted(activity: Activity, permission: AppPermission): Boolean {
             return granted
-        }
-    }
-
-    private class FakeRationaleChecker(
-        private val shouldShow: Boolean
-    ) : RationaleChecker {
-        override fun shouldShowRationale(activity: Activity, permission: AppPermission): Boolean {
-            return shouldShow
         }
     }
 }

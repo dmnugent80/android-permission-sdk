@@ -10,13 +10,10 @@ import org.mockito.Mockito.mock
 class PermissionStatusResolverTest {
     private val activity: Activity = mock(Activity::class.java)
     private val checker = FakePermissionChecker()
-    private val rationaleChecker = FakeRationaleChecker()
     private val educationStore = FakeEducationStore()
     private val resolver = PermissionStatusResolver(
         permissionChecker = checker,
-        rationaleChecker = rationaleChecker,
-        educationStore = educationStore,
-        permanentDenialPolicy = PermanentDenialPolicy()
+        educationStore = educationStore
     )
 
     @Test
@@ -44,7 +41,6 @@ class PermissionStatusResolverTest {
         checker.granted = false
         educationStore.educationShown = true
         educationStore.requested = false
-        rationaleChecker.shouldShow = false
 
         val status = resolver.resolve(AppPermission.Camera, activity)
 
@@ -52,38 +48,13 @@ class PermissionStatusResolverTest {
     }
 
     @Test
-    fun `returns denied when there is history and rationale is true`() {
+    fun `returns denied when request history exists`() {
         checker.granted = false
         educationStore.requested = true
-        rationaleChecker.shouldShow = true
 
         val status = resolver.resolve(AppPermission.Camera, activity)
 
         assertEquals(PermissionStatus.Denied, status)
-    }
-
-    @Test
-    fun `returns denied when request history exists and rationale is false but not marked permanent`() {
-        checker.granted = false
-        educationStore.requested = true
-        educationStore.permanentlyDenied = false
-        rationaleChecker.shouldShow = false
-
-        val status = resolver.resolve(AppPermission.Camera, activity)
-
-        assertEquals(PermissionStatus.Denied, status)
-    }
-
-    @Test
-    fun `returns permanently denied when there is history and rationale is false`() {
-        checker.granted = false
-        educationStore.requested = true
-        educationStore.permanentlyDenied = true
-        rationaleChecker.shouldShow = false
-
-        val status = resolver.resolve(AppPermission.Camera, activity)
-
-        assertEquals(PermissionStatus.PermanentlyDenied, status)
     }
 
     private class FakePermissionChecker : PermissionChecker {
@@ -94,18 +65,9 @@ class PermissionStatusResolverTest {
         }
     }
 
-    private class FakeRationaleChecker : RationaleChecker {
-        var shouldShow: Boolean = false
-
-        override fun shouldShowRationale(activity: Activity, permission: AppPermission): Boolean {
-            return shouldShow
-        }
-    }
-
     private class FakeEducationStore : PermissionEducationStore {
         var educationShown: Boolean = false
         var requested: Boolean = false
-        var permanentlyDenied: Boolean = false
 
         override fun wasEducationShown(permission: AppPermission): Boolean = educationShown
 
@@ -117,12 +79,6 @@ class PermissionStatusResolverTest {
 
         override fun markRequested(permission: AppPermission) {
             requested = true
-        }
-
-        override fun wasPermanentlyDenied(permission: AppPermission): Boolean = permanentlyDenied
-
-        override fun setPermanentlyDenied(permission: AppPermission, permanentlyDenied: Boolean) {
-            this.permanentlyDenied = permanentlyDenied
         }
     }
 }

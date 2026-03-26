@@ -10,13 +10,8 @@ import org.mockito.Mockito.mock
 class PermissionResultResolverTest {
     private val activity: Activity = mock(Activity::class.java)
     private val checker = FakePermissionChecker()
-    private val rationaleChecker = FakeRationaleChecker()
-    private val educationStore = FakeEducationStore()
     private val resolver = PermissionResultResolver(
-        permissionChecker = checker,
-        rationaleChecker = rationaleChecker,
-        educationStore = educationStore,
-        permanentDenialPolicy = PermanentDenialPolicy()
+        permissionChecker = checker
     )
 
     @Test
@@ -40,41 +35,8 @@ class PermissionResultResolverTest {
     }
 
     @Test
-    fun `returns denied when not granted and rationale is true`() {
+    fun `returns denied when not granted`() {
         checker.granted = false
-        educationStore.requested = true
-        rationaleChecker.shouldShow = true
-
-        val result = resolver.resolve(
-            AppPermission.Camera,
-            activity,
-            mapOf(android.Manifest.permission.CAMERA to false)
-        )
-
-        assertEquals(PermissionResult.Denied, result)
-    }
-
-    @Test
-    fun `returns permanently denied when not granted and rationale is false with history`() {
-        checker.granted = false
-        educationStore.requested = true
-        rationaleChecker.shouldShow = false
-
-        val result = resolver.resolve(
-            AppPermission.Camera,
-            activity,
-            mapOf(android.Manifest.permission.CAMERA to false)
-        )
-
-        assertEquals(PermissionResult.PermanentlyDenied, result)
-    }
-
-    @Test
-    fun `returns denied when not granted and only education history exists`() {
-        checker.granted = false
-        educationStore.educationShown = true
-        educationStore.requested = false
-        rationaleChecker.shouldShow = false
 
         val result = resolver.resolve(
             AppPermission.Camera,
@@ -93,35 +55,4 @@ class PermissionResultResolverTest {
         }
     }
 
-    private class FakeRationaleChecker : RationaleChecker {
-        var shouldShow: Boolean = false
-
-        override fun shouldShowRationale(activity: Activity, permission: AppPermission): Boolean {
-            return shouldShow
-        }
-    }
-
-    private class FakeEducationStore : PermissionEducationStore {
-        var educationShown: Boolean = false
-        var requested: Boolean = false
-        var permanentlyDenied: Boolean = false
-
-        override fun wasEducationShown(permission: AppPermission): Boolean = educationShown
-
-        override fun markEducationShown(permission: AppPermission) {
-            educationShown = true
-        }
-
-        override fun wasRequested(permission: AppPermission): Boolean = requested
-
-        override fun markRequested(permission: AppPermission) {
-            requested = true
-        }
-
-        override fun wasPermanentlyDenied(permission: AppPermission): Boolean = permanentlyDenied
-
-        override fun setPermanentlyDenied(permission: AppPermission, permanentlyDenied: Boolean) {
-            this.permanentlyDenied = permanentlyDenied
-        }
-    }
 }

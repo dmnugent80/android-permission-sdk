@@ -14,6 +14,4 @@ interface AndroidPermissionSdk {
     fun markEducationShown(permission: AppPermission)
 
     suspend fun request(permission: AppPermission, activity: ComponentActivity): PermissionResult
-
-    fun openAppSettings(activity: Activity)
 }

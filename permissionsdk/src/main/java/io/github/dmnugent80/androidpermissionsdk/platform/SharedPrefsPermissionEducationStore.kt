@@ -1,6 +1,7 @@
 package io.github.dmnugent80.androidpermissionsdk.platform
 
 import android.content.Context
+import androidx.core.content.edit
 import io.github.dmnugent80.androidpermissionsdk.api.AppPermission
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionEducationStore
 
@@ -13,9 +14,9 @@ internal class SharedPrefsPermissionEducationStore(context: Context) : Permissio
     }
 
     override fun markEducationShown(permission: AppPermission) {
-        sharedPreferences.edit()
-            .putBoolean(educationKey(permission), true)
-            .apply()
+        sharedPreferences.edit {
+            putBoolean(educationKey(permission), true)
+        }
     }
 
     override fun wasRequested(permission: AppPermission): Boolean {
@@ -23,19 +24,9 @@ internal class SharedPrefsPermissionEducationStore(context: Context) : Permissio
     }
 
     override fun markRequested(permission: AppPermission) {
-        sharedPreferences.edit()
-            .putBoolean(requestedKey(permission), true)
-            .apply()
-    }
-
-    override fun wasPermanentlyDenied(permission: AppPermission): Boolean {
-        return sharedPreferences.getBoolean(permanentDeniedKey(permission), false)
-    }
-
-    override fun setPermanentlyDenied(permission: AppPermission, permanentlyDenied: Boolean) {
-        sharedPreferences.edit()
-            .putBoolean(permanentDeniedKey(permission), permanentlyDenied)
-            .apply()
+        sharedPreferences.edit {
+            putBoolean(requestedKey(permission), true)
+        }
     }
 
     private fun educationKey(permission: AppPermission): String {
@@ -44,10 +35,6 @@ internal class SharedPrefsPermissionEducationStore(context: Context) : Permissio
 
     private fun requestedKey(permission: AppPermission): String {
         return "request_attempted_${permission.storageKey}"
-    }
-
-    private fun permanentDeniedKey(permission: AppPermission): String {
-        return "permanent_denial_${permission.storageKey}"
     }
 
     internal companion object {

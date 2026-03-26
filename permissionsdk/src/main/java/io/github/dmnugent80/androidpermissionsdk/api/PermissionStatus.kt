@@ -7,5 +7,4 @@ sealed interface PermissionStatus {
     data object Granted : PermissionStatus
     data object NotRequestedYet : PermissionStatus
     data object Denied : PermissionStatus
-    data object PermanentlyDenied : PermissionStatus
 }

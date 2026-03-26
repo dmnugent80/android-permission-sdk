@@ -7,8 +7,6 @@ Kotlin-first Android runtime permission SDK with a small public API and hidden i
 - Permission status inspection
 - Suspend-based permission requests
 - Education tracking (SharedPreferences)
-- Likely permanent-denial detection
-- Open-app-settings helper
 - Permissions:
   - `AppPermission.Camera`
   - `AppPermission.FineLocation`
@@ -45,7 +43,6 @@ interface AndroidPermissionSdk {
     fun shouldShowEducation(permission: AppPermission): Boolean
     fun markEducationShown(permission: AppPermission)
     suspend fun request(permission: AppPermission, activity: ComponentActivity): PermissionResult
-    fun openAppSettings(activity: Activity)
 }
 ```
 
@@ -66,9 +63,6 @@ if (sdk.shouldShowEducation(AppPermission.Camera)) {
 }
 
 val result = sdk.request(AppPermission.Camera, componentActivity)
-if (result == PermissionResult.PermanentlyDenied) {
-    sdk.openAppSettings(activity)
-}
 ```
 
 ## Status and Result Semantics
@@ -77,14 +71,12 @@ if (result == PermissionResult.PermanentlyDenied) {
 
 - `Granted`: permission is currently granted
 - `NotRequestedYet`: no request history for that permission
-- `Denied`: permission is currently not granted, but there is no recorded permanent-denial outcome (for example: explicit deny, one-time grant expiration, or settings revoke)
-- `PermanentlyDenied`: last denied request was recorded as permanent denial and rationale is still false
+- `Denied`: permission is currently not granted after at least one recorded request (for example: explicit deny, one-time grant expiration, or settings revoke)
 
 `PermissionResult` (result of `request(...)`):
 
 - `Granted`
 - `Denied`
-- `PermanentlyDenied`
 - `Cancelled` (request did not complete with a permission map)
 
 ## Module Structure
@@ -111,10 +103,10 @@ The SDK uses layered package architecture inside one publishable library module:
   - Wiring entry point (`AndroidPermissionSdkFactory`)
   - Facade implementation (`DefaultAndroidPermissionSdk`)
 - `core` layer:
-  - Internal abstractions: `PermissionChecker`, `RationaleChecker`, `PermissionEducationStore`, `PermissionRequestCoordinator`, `AppSettingsOpener`
-  - Business rules: `PermissionStatusResolver`, `PermissionResultResolver`, `PermanentDenialPolicy`
+  - Internal abstractions: `PermissionChecker`, `PermissionEducationStore`, `PermissionRequestCoordinator`
+  - Business rules: `PermissionStatusResolver`, `PermissionResultResolver`
 - `platform` layer:
-  - Android adapters for permission checks, rationale checks, SharedPreferences persistence, settings intents, and request coordination
+  - Android adapters for permission checks, SharedPreferences persistence, and request coordination
 
 Dependency direction is one-way:
 
@@ -128,20 +120,18 @@ Dependency direction is one-way:
 - Request flow is backed by `ActivityResultContracts.RequestMultiplePermissions` via `ComponentActivity.activityResultRegistry`.
 - `request(...)` works with `ComponentActivity` (including `FragmentActivity` subclasses).
 - `Cancelled` can occur when the launcher cannot be registered or the request cannot be completed.
-- One-time grants are treated as `Granted` while active and `Denied` after expiration/revocation (not `PermanentlyDenied` unless a permanent denial is explicitly recorded by a denied request flow).
+- One-time grants are treated as `Granted` while active and `Denied` after expiration/revocation.
 
 ## Testing
 
 Unit tests cover core decision logic:
 
-- `PermanentDenialPolicyTest`
 - `PermissionStatusResolverTest`
 - `PermissionResultResolverTest`
 
 Instrumentation smoke tests cover:
 
 - SDK factory creation
-- App settings intent generation
 
 ## Build
 

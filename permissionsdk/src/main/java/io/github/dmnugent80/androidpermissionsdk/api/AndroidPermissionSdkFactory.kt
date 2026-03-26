@@ -3,10 +3,7 @@ package io.github.dmnugent80.androidpermissionsdk.api
 import android.content.Context
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionResultResolver
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionStatusResolver
-import io.github.dmnugent80.androidpermissionsdk.core.PermanentDenialPolicy
-import io.github.dmnugent80.androidpermissionsdk.platform.AndroidAppSettingsOpener
 import io.github.dmnugent80.androidpermissionsdk.platform.AndroidPermissionChecker
-import io.github.dmnugent80.androidpermissionsdk.platform.AndroidRationaleChecker
 import io.github.dmnugent80.androidpermissionsdk.platform.ActivityResultPermissionRequestCoordinator
 import io.github.dmnugent80.androidpermissionsdk.platform.SharedPrefsPermissionEducationStore
 
@@ -15,28 +12,19 @@ import io.github.dmnugent80.androidpermissionsdk.platform.SharedPrefsPermissionE
  */
 object AndroidPermissionSdkFactory {
     fun create(context: Context): AndroidPermissionSdk {
-        val appContext = context.applicationContext
         val checker = AndroidPermissionChecker()
-        val rationaleChecker = AndroidRationaleChecker()
-        val educationStore = SharedPrefsPermissionEducationStore(appContext)
-        val denialPolicy = PermanentDenialPolicy()
+        val educationStore = SharedPrefsPermissionEducationStore(context.applicationContext)
         val statusResolver = PermissionStatusResolver(
             permissionChecker = checker,
-            rationaleChecker = rationaleChecker,
-            educationStore = educationStore,
-            permanentDenialPolicy = denialPolicy
+            educationStore = educationStore
         )
         val resultResolver = PermissionResultResolver(
-            permissionChecker = checker,
-            rationaleChecker = rationaleChecker,
-            educationStore = educationStore,
-            permanentDenialPolicy = denialPolicy
+            permissionChecker = checker
         )
 
         return DefaultAndroidPermissionSdk(
             educationStore = educationStore,
             requestCoordinator = ActivityResultPermissionRequestCoordinator(),
-            appSettingsOpener = AndroidAppSettingsOpener(appContext),
             statusResolver = statusResolver,
             resultResolver = resultResolver
         )

@@ -91,8 +91,7 @@ private fun PermissionSampleScreen(
             lastResult = uiState.camera.lastResult,
             onRefresh = { viewModel.refreshAll(activity) },
             onMarkEducationShown = viewModel::markCameraEducationShown,
-            onRequest = { viewModel.requestCamera(activity) },
-            onOpenSettings = { viewModel.openSettings(activity) }
+            onRequest = { viewModel.requestCamera(activity) }
         )
 
         PermissionSection(
@@ -102,8 +101,7 @@ private fun PermissionSampleScreen(
             lastResult = uiState.location.lastResult,
             onRefresh = { viewModel.refreshAll(activity) },
             onMarkEducationShown = viewModel::markLocationEducationShown,
-            onRequest = { viewModel.requestLocation(activity) },
-            onOpenSettings = { viewModel.openSettings(activity) }
+            onRequest = { viewModel.requestLocation(activity) }
         )
 
         Button(
@@ -125,8 +123,7 @@ private fun PermissionSection(
     lastResult: PermissionResult?,
     onRefresh: () -> Unit,
     onMarkEducationShown: () -> Unit,
-    onRequest: () -> Unit,
-    onOpenSettings: () -> Unit
+    onRequest: () -> Unit
 ) {
     Card {
         Column(
@@ -155,13 +152,8 @@ private fun PermissionSection(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onMarkEducationShown) {
-                    Text("Mark education shown")
-                }
-                Button(onClick = onOpenSettings) {
-                    Text("Open settings")
-                }
+            Button(onClick = onMarkEducationShown) {
+                Text("Mark education shown")
             }
         }
     }
@@ -172,7 +164,6 @@ private fun PermissionStatus.toDisplayText(): String {
         PermissionStatus.Granted -> "Granted"
         PermissionStatus.NotRequestedYet -> "Not requested yet"
         PermissionStatus.Denied -> "Denied"
-        PermissionStatus.PermanentlyDenied -> "Permanently denied"
     }
 }
 
@@ -180,7 +171,6 @@ private fun PermissionResult.toDisplayText(): String {
     return when (this) {
         PermissionResult.Granted -> "Granted"
         PermissionResult.Denied -> "Denied"
-        PermissionResult.PermanentlyDenied -> "Permanently denied"
         PermissionResult.Cancelled -> "Cancelled"
     }
 }
@@ -192,7 +182,6 @@ internal fun PermissionStatus.toExplanationText(): String? {
                 "one-time grant expiration, or a settings revoke."
         }
         PermissionStatus.Granted,
-        PermissionStatus.NotRequestedYet,
-        PermissionStatus.PermanentlyDenied -> null
+        PermissionStatus.NotRequestedYet -> null
     }
 }

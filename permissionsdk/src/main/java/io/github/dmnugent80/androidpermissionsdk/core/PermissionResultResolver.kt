@@ -5,10 +5,7 @@ import io.github.dmnugent80.androidpermissionsdk.api.AppPermission
 import io.github.dmnugent80.androidpermissionsdk.api.PermissionResult
 
 internal class PermissionResultResolver(
-    private val permissionChecker: PermissionChecker,
-    private val rationaleChecker: RationaleChecker,
-    private val educationStore: PermissionEducationStore,
-    private val permanentDenialPolicy: PermanentDenialPolicy
+    private val permissionChecker: PermissionChecker
 ) {
     fun resolve(
         permission: AppPermission,
@@ -23,13 +20,6 @@ internal class PermissionResultResolver(
             return PermissionResult.Granted
         }
 
-        val hasRequestHistory = educationStore.wasRequested(permission)
-        val shouldShowRationale = rationaleChecker.shouldShowRationale(activity, permission)
-
-        return if (permanentDenialPolicy.isPermanentlyDenied(hasRequestHistory, shouldShowRationale)) {
-            PermissionResult.PermanentlyDenied
-        } else {
-            PermissionResult.Denied
-        }
+        return PermissionResult.Denied
     }
 }

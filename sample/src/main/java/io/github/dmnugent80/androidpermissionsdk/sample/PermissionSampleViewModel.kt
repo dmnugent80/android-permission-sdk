@@ -95,10 +95,6 @@ class PermissionSampleViewModel(
         }
     }
 
-    fun openSettings(activity: Activity) {
-        sdk.openAppSettings(activity)
-    }
-
     fun clearDebugState(context: Context, activity: Activity) {
         context.getSharedPreferences(SDK_DEBUG_PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
