@@ -124,10 +124,16 @@ Dependency direction is one-way:
 
 ## Testing
 
-Unit tests cover core decision logic:
+Core unit tests cover SDK decision logic:
 
+- `DefaultAndroidPermissionSdkTest`
 - `PermissionStatusResolverTest`
 - `PermissionResultResolverTest`
+
+Sample unit tests cover:
+
+- ViewModel state flows for refresh/request/education/debug-clear behavior
+- Status explanation copy for `Denied` (including one-time-expiry/settings-revoke clarity)
 
 Instrumentation smoke tests cover:
 
@@ -136,7 +142,7 @@ Instrumentation smoke tests cover:
 ## Build
 
 ```bash
-./gradlew :permissionsdk:test :permissionsdk:assembleRelease :sample:assembleDebug
+./gradlew :permissionsdk:test :sample:test :permissionsdk:assembleRelease :sample:assembleDebug
 ```
 
 ## Publishing Prep
