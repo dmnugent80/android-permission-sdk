@@ -6,6 +6,11 @@ Kotlin-first Android runtime permission SDK with a small public API and hidden i
 
 - Permission status inspection
 - Suspend-based permission requests
+- Rich permission outcomes:
+  - `Denied(canRequestAgain)` for retry vs likely-permanent deny cases
+  - Preflight outcomes for manifest/API-level support
+  - In-progress outcomes for active request coordination
+- Request-in-progress tracking (`isRequestInProgress(...)`)
 - Education tracking (SharedPreferences)
 - Permissions:
   - `AppPermission.Camera`
@@ -42,6 +47,7 @@ interface AndroidPermissionSdk {
     fun getStatus(permission: AppPermission, activity: Activity): PermissionStatus
     fun shouldShowEducation(permission: AppPermission): Boolean
     fun markEducationShown(permission: AppPermission)
+    fun isRequestInProgress(permission: AppPermission): Boolean
     suspend fun request(permission: AppPermission, activity: ComponentActivity): PermissionResult
 }
 ```
@@ -57,12 +63,33 @@ val sdk = AndroidPermissionSdkFactory.create(applicationContext)
 ```kotlin
 val status = sdk.getStatus(AppPermission.Camera, activity)
 
+if (status is PermissionStatus.Denied && status.canRequestAgain) {
+    // Optional: show rationale before requesting again.
+}
+
 if (sdk.shouldShowEducation(AppPermission.Camera)) {
     // Show your own rationale UI, then:
     sdk.markEducationShown(AppPermission.Camera)
 }
 
-val result = sdk.request(AppPermission.Camera, componentActivity)
+if (sdk.isRequestInProgress(AppPermission.Camera)) {
+    // Optional: disable request button while request is active.
+}
+
+when (val result = sdk.request(AppPermission.Camera, componentActivity)) {
+    PermissionResult.Granted -> Unit
+    is PermissionResult.Denied -> {
+        if (result.canRequestAgain) {
+            // Can retry with rationale flow.
+        } else {
+            // Likely permanent deny: guide user to Settings.
+        }
+    }
+    PermissionResult.AlreadyInProgress -> Unit
+    PermissionResult.MissingFromManifest -> Unit
+    PermissionResult.UnavailableOnApiLevel -> Unit
+    PermissionResult.Cancelled -> Unit
+}
 ```
 
 ## Status and Result Semantics
@@ -71,13 +98,22 @@ val result = sdk.request(AppPermission.Camera, componentActivity)
 
 - `Granted`: permission is currently granted
 - `NotRequestedYet`: no request history for that permission
-- `Denied`: permission is currently not granted after at least one recorded request (for example: explicit deny, one-time grant expiration, or settings revoke)
+- `Denied(canRequestAgain)`:
+  - `canRequestAgain = shouldShowRationale(activity, permission) || wasEverGranted(permission)`
+  - This allows one-time-expiry/settings-revoke recovery to remain requestable when previously granted
+- `MissingFromManifest`: required manifest declaration is missing
+- `UnavailableOnApiLevel`: permission is not supported on current Android API level
+- `RequestInProgress`: a request for this permission is currently active
 
 `PermissionResult` (result of `request(...)`):
 
 - `Granted`
-- `Denied`
-- `Cancelled` (request did not complete with a permission map)
+- `Denied(canRequestAgain)`:
+  - `canRequestAgain = shouldShowRationale(activity, permission)`
+- `AlreadyInProgress`: request short-circuited because same permission request is active
+- `MissingFromManifest`: request short-circuited due to manifest precondition failure
+- `UnavailableOnApiLevel`: request short-circuited due to API-level support check
+- `Cancelled`: request did not complete with a permission map
 
 ## Module Structure
 
@@ -103,10 +139,12 @@ The SDK uses layered package architecture inside one publishable library module:
   - Wiring entry point (`AndroidPermissionSdkFactory`)
   - Facade implementation (`DefaultAndroidPermissionSdk`)
 - `core` layer:
-  - Internal abstractions: `PermissionChecker`, `PermissionEducationStore`, `PermissionRequestCoordinator`
+  - Internal abstractions: `PermissionChecker`, `PermissionEducationStore`, `PermissionGrantHistoryStore`, `PermissionRequestCoordinator`, `PermissionApiLevelChecker`, `PermissionManifestChecker`, `PermissionRationaleChecker`, `PermissionRequestTracker`
   - Business rules: `PermissionStatusResolver`, `PermissionResultResolver`
 - `platform` layer:
-  - Android adapters for permission checks, SharedPreferences persistence, and request coordination
+  - Android adapters for permission checks and request coordination
+  - SharedPreferences-backed stores for education and grant-history persistence
+  - Concrete checkers/tracking: `AndroidPermissionApiLevelChecker`, `AndroidPermissionManifestChecker`, `AndroidPermissionRationaleChecker`, `InMemoryPermissionRequestTracker`
 
 Dependency direction is one-way:
 
@@ -119,7 +157,11 @@ Dependency direction is one-way:
 
 - Request flow is backed by `ActivityResultContracts.RequestMultiplePermissions` via `ComponentActivity.activityResultRegistry`.
 - `request(...)` works with `ComponentActivity` (including `FragmentActivity` subclasses).
-- `Cancelled` can occur when the launcher cannot be registered or the request cannot be completed.
+- `request(...)` preflight short-circuits to:
+  - `UnavailableOnApiLevel`
+  - `MissingFromManifest`
+  - `AlreadyInProgress`
+- `Cancelled` occurs when the request completes without a permission result map (for example, launcher setup failure or interrupted completion path).
 - One-time grants are treated as `Granted` while active and `Denied` after expiration/revocation.
 
 ## Testing

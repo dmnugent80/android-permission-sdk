@@ -10,8 +10,10 @@ import org.mockito.Mockito.mock
 class PermissionResultResolverTest {
     private val activity: Activity = mock(Activity::class.java)
     private val checker = FakePermissionChecker()
+    private val rationaleChecker = FakeRationaleChecker()
     private val resolver = PermissionResultResolver(
-        permissionChecker = checker
+        permissionChecker = checker,
+        rationaleChecker = rationaleChecker
     )
 
     @Test
@@ -35,8 +37,9 @@ class PermissionResultResolverTest {
     }
 
     @Test
-    fun `returns denied when not granted`() {
+    fun `returns denied with canRequestAgain true when rationale should be shown`() {
         checker.granted = false
+        rationaleChecker.shouldShow = true
 
         val result = resolver.resolve(
             AppPermission.Camera,
@@ -44,7 +47,21 @@ class PermissionResultResolverTest {
             mapOf(android.Manifest.permission.CAMERA to false)
         )
 
-        assertEquals(PermissionResult.Denied, result)
+        assertEquals(PermissionResult.Denied(canRequestAgain = true), result)
+    }
+
+    @Test
+    fun `returns denied with canRequestAgain false when rationale should not be shown`() {
+        checker.granted = false
+        rationaleChecker.shouldShow = false
+
+        val result = resolver.resolve(
+            AppPermission.Camera,
+            activity,
+            mapOf(android.Manifest.permission.CAMERA to false)
+        )
+
+        assertEquals(PermissionResult.Denied(canRequestAgain = false), result)
     }
 
     private class FakePermissionChecker : PermissionChecker {
@@ -55,4 +72,11 @@ class PermissionResultResolverTest {
         }
     }
 
+    private class FakeRationaleChecker : PermissionRationaleChecker {
+        var shouldShow: Boolean = false
+
+        override fun shouldShowRationale(activity: Activity, permission: AppPermission): Boolean {
+            return shouldShow
+        }
+    }
 }

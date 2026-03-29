@@ -163,24 +163,36 @@ private fun PermissionStatus.toDisplayText(): String {
     return when (this) {
         PermissionStatus.Granted -> "Granted"
         PermissionStatus.NotRequestedYet -> "Not requested yet"
-        PermissionStatus.Denied -> "Denied"
+        is PermissionStatus.Denied -> if (canRequestAgain) "Denied (can retry)" else "Denied (permanent)"
+        PermissionStatus.MissingFromManifest -> "Missing from manifest"
+        PermissionStatus.UnavailableOnApiLevel -> "Unavailable on API level"
+        PermissionStatus.RequestInProgress -> "Request in progress"
     }
 }
 
 private fun PermissionResult.toDisplayText(): String {
     return when (this) {
         PermissionResult.Granted -> "Granted"
-        PermissionResult.Denied -> "Denied"
+        is PermissionResult.Denied -> if (canRequestAgain) "Denied (can retry)" else "Denied (permanent)"
         PermissionResult.Cancelled -> "Cancelled"
+        PermissionResult.AlreadyInProgress -> "Already in progress"
+        PermissionResult.MissingFromManifest -> "Missing from manifest"
+        PermissionResult.UnavailableOnApiLevel -> "Unavailable on API level"
     }
 }
 
 internal fun PermissionStatus.toExplanationText(): String? {
     return when (this) {
-        PermissionStatus.Denied -> {
-            "Denied means not currently granted. This can happen after an explicit deny, " +
-                "one-time grant expiration, or a settings revoke."
+        is PermissionStatus.Denied -> {
+            if (canRequestAgain) {
+                "User denied but can be asked again. Show rationale before requesting."
+            } else {
+                "User denied permanently. Redirect to app settings to grant."
+            }
         }
+        PermissionStatus.MissingFromManifest -> "Permission not declared in AndroidManifest.xml."
+        PermissionStatus.UnavailableOnApiLevel -> "Permission not available on this Android version."
+        PermissionStatus.RequestInProgress -> "A request is already in progress."
         PermissionStatus.Granted,
         PermissionStatus.NotRequestedYet -> null
     }

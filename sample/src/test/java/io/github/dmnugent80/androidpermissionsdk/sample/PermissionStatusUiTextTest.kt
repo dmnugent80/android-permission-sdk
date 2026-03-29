@@ -7,12 +7,21 @@ import org.junit.Test
 
 class PermissionStatusUiTextTest {
     @Test
-    fun denied_explanation_mentions_oneTimeExpiryAndRevoke() {
-        val explanation = PermissionStatus.Denied.toExplanationText()
+    fun denied_canRetry_explanation_mentions_rationale() {
+        val explanation = PermissionStatus.Denied(canRequestAgain = true).toExplanationText()
 
         assertEquals(
-            "Denied means not currently granted. This can happen after an explicit deny, " +
-                "one-time grant expiration, or a settings revoke.",
+            "User denied but can be asked again. Show rationale before requesting.",
+            explanation
+        )
+    }
+
+    @Test
+    fun denied_permanent_explanation_mentions_settings() {
+        val explanation = PermissionStatus.Denied(canRequestAgain = false).toExplanationText()
+
+        assertEquals(
+            "User denied permanently. Redirect to app settings to grant.",
             explanation
         )
     }
@@ -21,5 +30,21 @@ class PermissionStatusUiTextTest {
     fun nonDenied_statuses_have_no_extra_explanation() {
         assertNull(PermissionStatus.Granted.toExplanationText())
         assertNull(PermissionStatus.NotRequestedYet.toExplanationText())
+    }
+
+    @Test
+    fun error_statuses_have_explanations() {
+        assertEquals(
+            "Permission not declared in AndroidManifest.xml.",
+            PermissionStatus.MissingFromManifest.toExplanationText()
+        )
+        assertEquals(
+            "Permission not available on this Android version.",
+            PermissionStatus.UnavailableOnApiLevel.toExplanationText()
+        )
+        assertEquals(
+            "A request is already in progress.",
+            PermissionStatus.RequestInProgress.toExplanationText()
+        )
     }
 }

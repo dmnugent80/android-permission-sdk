@@ -48,7 +48,7 @@ class PermissionSampleViewModelTest {
     @Test
     fun refreshAll_populatesPermissionSections() {
         sdk.cameraStatus = PermissionStatus.Granted
-        sdk.locationStatus = PermissionStatus.Denied
+        sdk.locationStatus = PermissionStatus.Denied(canRequestAgain = true)
         sdk.cameraEducation = false
         sdk.locationEducation = true
 
@@ -56,7 +56,7 @@ class PermissionSampleViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(PermissionStatus.Granted, state.camera.status)
-        assertEquals(PermissionStatus.Denied, state.location.status)
+        assertEquals(PermissionStatus.Denied(canRequestAgain = true), state.location.status)
         assertFalse(state.camera.shouldShowEducation)
         assertEquals(true, state.location.shouldShowEducation)
     }
@@ -64,7 +64,7 @@ class PermissionSampleViewModelTest {
     @Test
     fun requestFlows_updateLastResultAndRefreshStatus() = runTest {
         sdk.nextCameraResult = PermissionResult.Granted
-        sdk.nextLocationResult = PermissionResult.Denied
+        sdk.nextLocationResult = PermissionResult.Denied(canRequestAgain = false)
 
         viewModel.requestCamera(componentActivity)
         viewModel.requestLocation(componentActivity)
@@ -72,9 +72,9 @@ class PermissionSampleViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(PermissionResult.Granted, state.camera.lastResult)
-        assertEquals(PermissionResult.Denied, state.location.lastResult)
+        assertEquals(PermissionResult.Denied(canRequestAgain = false), state.location.lastResult)
         assertEquals(PermissionStatus.Granted, state.camera.status)
-        assertEquals(PermissionStatus.Denied, state.location.status)
+        assertEquals(PermissionStatus.Denied(canRequestAgain = false), state.location.status)
     }
 
     @Test
@@ -94,13 +94,13 @@ class PermissionSampleViewModelTest {
     @Test
     fun clearDebugState_clearsLastResultsAndRefreshesFromSdk() = runTest {
         sdk.nextCameraResult = PermissionResult.Granted
-        sdk.nextLocationResult = PermissionResult.Denied
+        sdk.nextLocationResult = PermissionResult.Denied(canRequestAgain = false)
         viewModel.requestCamera(componentActivity)
         viewModel.requestLocation(componentActivity)
         advanceUntilIdle()
 
-        sdk.cameraStatus = PermissionStatus.Denied
-        sdk.locationStatus = PermissionStatus.Denied
+        sdk.cameraStatus = PermissionStatus.Denied(canRequestAgain = true)
+        sdk.locationStatus = PermissionStatus.Denied(canRequestAgain = false)
 
         val context = Mockito.mock(Context::class.java)
         val sharedPreferences = Mockito.mock(SharedPreferences::class.java)
@@ -116,8 +116,8 @@ class PermissionSampleViewModelTest {
         val state = viewModel.uiState.value
         assertNull(state.camera.lastResult)
         assertNull(state.location.lastResult)
-        assertEquals(PermissionStatus.Denied, state.camera.status)
-        assertEquals(PermissionStatus.Denied, state.location.status)
+        assertEquals(PermissionStatus.Denied(canRequestAgain = true), state.camera.status)
+        assertEquals(PermissionStatus.Denied(canRequestAgain = false), state.location.status)
         Mockito.verify(editor).clear()
         Mockito.verify(editor).apply()
     }
@@ -128,8 +128,8 @@ private class FakeAndroidPermissionSdk : AndroidPermissionSdk {
     var locationStatus: PermissionStatus = PermissionStatus.NotRequestedYet
     var cameraEducation: Boolean = true
     var locationEducation: Boolean = true
-    var nextCameraResult: PermissionResult = PermissionResult.Denied
-    var nextLocationResult: PermissionResult = PermissionResult.Denied
+    var nextCameraResult: PermissionResult = PermissionResult.Denied(canRequestAgain = false)
+    var nextLocationResult: PermissionResult = PermissionResult.Denied(canRequestAgain = false)
 
     override fun getStatus(permission: AppPermission, activity: Activity): PermissionStatus {
         return when (permission) {
@@ -152,6 +152,8 @@ private class FakeAndroidPermissionSdk : AndroidPermissionSdk {
         }
     }
 
+    override fun isRequestInProgress(permission: AppPermission): Boolean = false
+
     override suspend fun request(
         permission: AppPermission,
         activity: ComponentActivity
@@ -169,8 +171,11 @@ private class FakeAndroidPermissionSdk : AndroidPermissionSdk {
     private fun PermissionResult.toStatus(): PermissionStatus {
         return when (this) {
             PermissionResult.Granted -> PermissionStatus.Granted
-            PermissionResult.Denied -> PermissionStatus.Denied
+            is PermissionResult.Denied -> PermissionStatus.Denied(canRequestAgain)
             PermissionResult.Cancelled -> PermissionStatus.NotRequestedYet
+            PermissionResult.AlreadyInProgress -> PermissionStatus.RequestInProgress
+            PermissionResult.MissingFromManifest -> PermissionStatus.MissingFromManifest
+            PermissionResult.UnavailableOnApiLevel -> PermissionStatus.UnavailableOnApiLevel
         }
     }
 }

@@ -13,5 +13,7 @@ interface AndroidPermissionSdk {
 
     fun markEducationShown(permission: AppPermission)
 
+    fun isRequestInProgress(permission: AppPermission): Boolean
+
     suspend fun request(permission: AppPermission, activity: ComponentActivity): PermissionResult
 }

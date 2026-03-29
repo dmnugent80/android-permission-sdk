@@ -5,7 +5,8 @@ import io.github.dmnugent80.androidpermissionsdk.api.AppPermission
 import io.github.dmnugent80.androidpermissionsdk.api.PermissionResult
 
 internal class PermissionResultResolver(
-    private val permissionChecker: PermissionChecker
+    private val permissionChecker: PermissionChecker,
+    private val rationaleChecker: PermissionRationaleChecker
 ) {
     fun resolve(
         permission: AppPermission,
@@ -20,6 +21,7 @@ internal class PermissionResultResolver(
             return PermissionResult.Granted
         }
 
-        return PermissionResult.Denied
+        val canRequestAgain = rationaleChecker.shouldShowRationale(activity, permission)
+        return PermissionResult.Denied(canRequestAgain)
     }
 }

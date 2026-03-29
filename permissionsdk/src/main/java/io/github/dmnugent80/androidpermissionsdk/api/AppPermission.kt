@@ -7,7 +7,8 @@ import android.Manifest
  */
 enum class AppPermission(
     internal val storageKey: String,
-    internal val androidPermissions: Array<String>
+    internal val androidPermissions: Array<String>,
+    internal val minApiLevel: Int? = null
 ) {
     Camera(
         storageKey = "camera",
