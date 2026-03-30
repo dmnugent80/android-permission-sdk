@@ -12,6 +12,9 @@ Kotlin-first Android runtime permission SDK with a small public API and hidden i
   - In-progress outcomes for active request coordination
 - Request-in-progress tracking (`isRequestInProgress(...)`)
 - Education tracking (SharedPreferences)
+- Configurable SDK logging (`PermissionSdkLogger`)
+- Structured diagnostics event stream (`PermissionSdkEvent`)
+- Optional diagnostics configuration (`PermissionSdkConfig`)
 - Permissions:
   - `AppPermission.Camera`
   - `AppPermission.FineLocation`
@@ -57,6 +60,59 @@ Create an instance:
 ```kotlin
 val sdk = AndroidPermissionSdkFactory.create(applicationContext)
 ```
+
+Create an instance with observability hooks:
+
+```kotlin
+val config = PermissionSdkConfig.Builder()
+    .logger { level, tag, message, throwable ->
+        // Route SDK logs to your logging system.
+    }
+    .eventListener { event ->
+        when (event) {
+            is PermissionSdkEvent.LauncherRegistrationFailed -> {
+                // Example: attach as crash breadcrumb/telemetry signal.
+            }
+            else -> Unit
+        }
+    }
+    .debugMode(true)
+    .build()
+
+val sdk = AndroidPermissionSdkFactory.create(applicationContext, config)
+```
+
+## Observability
+
+Use observability hooks when you want visibility into SDK request lifecycle behavior.
+
+- `PermissionSdkConfig`:
+  - `logger(...)`: optional log sink for SDK log messages
+  - `eventListener(...)`: optional structured lifecycle callback
+  - `debugMode(true)`: enables debug-level SDK logs
+- `PermissionSdkLogger`:
+  - Receives `log(level, tag, message, throwable)`
+  - Log levels: `DEBUG`, `INFO`, `WARN`, `ERROR`
+- `PermissionSdkEventListener`:
+  - Receives `PermissionSdkEvent` callbacks for each request lifecycle stage
+- `PermissionSdkEvent` variants:
+  - `RequestStarted`: request orchestration has begun
+  - `LauncherRegistrationFailed`: launcher registration failed (includes `IllegalStateException`)
+  - `SystemResponseReceived`: raw system permission map received
+  - `RequestCompleted`: final SDK result resolved (preflight short-circuit or request completion)
+
+Typical uses:
+
+- Analytics or request funnel telemetry
+- Crash-report breadcrumbs for request failures
+- Debug visibility into permission request internals
+
+Behavior guarantees and caveats:
+
+- Observability is optional. If no config is passed, SDK behavior remains unchanged.
+- `debugMode(true)` controls debug log emission. Warning-level launcher-registration failure logs/events still emit when diagnostics are configured.
+- Logger and event-listener callback failures are swallowed and do not alter permission flow outcomes.
+- `RequestCompleted` can represent either preflight short-circuit outcomes or post-request resolution.
 
 ## Quick Usage
 
@@ -136,6 +192,7 @@ The SDK uses layered package architecture inside one publishable library module:
 - `api` layer:
   - Public contract (`AndroidPermissionSdk`)
   - Public models (`AppPermission`, `PermissionStatus`, `PermissionResult`)
+  - Public observability types (`PermissionSdkConfig`, `PermissionSdkLogger`, `PermissionSdkEvent`, `PermissionSdkEventListener`)
   - Wiring entry point (`AndroidPermissionSdkFactory`)
   - Facade implementation (`DefaultAndroidPermissionSdk`)
 - `core` layer:
@@ -161,6 +218,7 @@ Dependency direction is one-way:
   - `UnavailableOnApiLevel`
   - `MissingFromManifest`
   - `AlreadyInProgress`
+- Observability is configured through `AndroidPermissionSdkFactory.create(context, config)` and consumed internally during request orchestration.
 - `Cancelled` occurs when the request completes without a permission result map (for example, launcher setup failure or interrupted completion path).
 - One-time grants are treated as `Granted` while active and `Denied` after expiration/revocation.
 
