@@ -2,6 +2,7 @@ package io.github.dmnugent80.androidpermissionsdk.api
 
 import android.app.Activity
 import androidx.activity.ComponentActivity
+import io.github.dmnugent80.androidpermissionsdk.core.DiagnosticsEmitter
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionApiLevelChecker
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionChecker
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionEducationStore
@@ -12,10 +13,13 @@ import io.github.dmnugent80.androidpermissionsdk.core.PermissionRequestCoordinat
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionRequestTracker
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionResultResolver
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionStatusResolver
+import io.github.dmnugent80.androidpermissionsdk.platform.DefaultDiagnosticsEmitter
+import io.github.dmnugent80.androidpermissionsdk.platform.NoOpDiagnosticsEmitter
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.mockito.Mockito.mock
 
@@ -129,6 +133,108 @@ class DefaultAndroidPermissionSdkTest {
         assertFalse(requestTracker.isRequestInProgress(AppPermission.Camera))
     }
 
+    @Test
+    fun `request clears in progress flag when diagnostics throws during request start`() = runBlocking {
+        val requestTracker = FakeRequestTracker()
+        val sdk = createSdk(
+            requestTracker = requestTracker,
+            diagnostics = object : DiagnosticsEmitter {
+                override fun emitRequestStarted(permission: AppPermission) {
+                    error("boom")
+                }
+
+                override fun emitLauncherRegistrationFailed(
+                    permission: AppPermission,
+                    exception: IllegalStateException
+                ) = Unit
+
+                override fun emitSystemResponseReceived(
+                    permission: AppPermission,
+                    rawResult: Map<String, Boolean>
+                ) = Unit
+
+                override fun emitRequestCompleted(permission: AppPermission, result: PermissionResult) = Unit
+
+                override fun log(
+                    level: PermissionSdkLogger.LogLevel,
+                    tag: String,
+                    message: String,
+                    throwable: Throwable?
+                ) = Unit
+            }
+        )
+
+        try {
+            sdk.request(AppPermission.Camera, componentActivity)
+            fail("Expected diagnostics failure to propagate")
+        } catch (_: IllegalStateException) {
+            // Expected: this test asserts lifecycle cleanup via finally.
+        }
+
+        assertFalse(requestTracker.isRequestInProgress(AppPermission.Camera))
+    }
+
+    @Test
+    fun `request result is unchanged when diagnostics callbacks throw`() = runBlocking {
+        val diagnostics = DefaultDiagnosticsEmitter(
+            PermissionSdkConfig.Builder()
+                .debugMode(true)
+                .logger { _, _, _, _ -> error("logger boom") }
+                .eventListener { error("listener boom") }
+                .build()
+        )
+
+        val sdk = createSdk(
+            granted = true,
+            requestResult = mapOf(android.Manifest.permission.CAMERA to true),
+            diagnostics = diagnostics
+        )
+
+        val result = sdk.request(AppPermission.Camera, componentActivity)
+
+        assertEquals(PermissionResult.Granted, result)
+    }
+
+    @Test
+    fun `request result is not impacted when diagnostics mutates emitted system response`() = runBlocking {
+        val rawRequestResult = mutableMapOf(android.Manifest.permission.CAMERA to false)
+        val sdk = createSdk(
+            granted = false,
+            requestResult = rawRequestResult,
+            shouldShowRationale = false,
+            diagnostics = object : DiagnosticsEmitter {
+                override fun emitRequestStarted(permission: AppPermission) = Unit
+
+                override fun emitLauncherRegistrationFailed(
+                    permission: AppPermission,
+                    exception: IllegalStateException
+                ) = Unit
+
+                override fun emitSystemResponseReceived(
+                    permission: AppPermission,
+                    rawResult: Map<String, Boolean>
+                ) {
+                    if (rawResult === rawRequestResult) {
+                        rawRequestResult.clear()
+                    }
+                }
+
+                override fun emitRequestCompleted(permission: AppPermission, result: PermissionResult) = Unit
+
+                override fun log(
+                    level: PermissionSdkLogger.LogLevel,
+                    tag: String,
+                    message: String,
+                    throwable: Throwable?
+                ) = Unit
+            }
+        )
+
+        val result = sdk.request(AppPermission.Camera, componentActivity)
+
+        assertEquals(PermissionResult.Denied(canRequestAgain = false), result)
+    }
+
     private fun createSdk(
         educationStore: FakeEducationStore = FakeEducationStore(),
         granted: Boolean = true,
@@ -136,7 +242,8 @@ class DefaultAndroidPermissionSdkTest {
         apiLevelAvailable: Boolean = true,
         manifestDeclared: Boolean = true,
         shouldShowRationale: Boolean = false,
-        requestTracker: FakeRequestTracker = FakeRequestTracker()
+        requestTracker: FakeRequestTracker = FakeRequestTracker(),
+        diagnostics: DiagnosticsEmitter = NoOpDiagnosticsEmitter
     ): DefaultAndroidPermissionSdk {
         val checker = FakePermissionChecker(granted = granted)
         val apiLevelChecker = FakeApiLevelChecker(apiLevelAvailable)
@@ -164,7 +271,8 @@ class DefaultAndroidPermissionSdkTest {
             resultResolver = resultResolver,
             apiLevelChecker = apiLevelChecker,
             manifestChecker = manifestChecker,
-            requestTracker = requestTracker
+            requestTracker = requestTracker,
+            diagnostics = diagnostics
         )
     }
 

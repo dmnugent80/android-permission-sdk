@@ -2,6 +2,7 @@ package io.github.dmnugent80.androidpermissionsdk.api
 
 import android.app.Activity
 import androidx.activity.ComponentActivity
+import io.github.dmnugent80.androidpermissionsdk.core.DiagnosticsEmitter
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionApiLevelChecker
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionEducationStore
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionManifestChecker
@@ -9,6 +10,7 @@ import io.github.dmnugent80.androidpermissionsdk.core.PermissionRequestCoordinat
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionRequestTracker
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionResultResolver
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionStatusResolver
+import io.github.dmnugent80.androidpermissionsdk.platform.NoOpDiagnosticsEmitter
 
 /**
  * Default SDK facade implementation.
@@ -20,7 +22,8 @@ class DefaultAndroidPermissionSdk internal constructor(
     private val resultResolver: PermissionResultResolver,
     private val apiLevelChecker: PermissionApiLevelChecker,
     private val manifestChecker: PermissionManifestChecker,
-    private val requestTracker: PermissionRequestTracker
+    private val requestTracker: PermissionRequestTracker,
+    private val diagnostics: DiagnosticsEmitter = NoOpDiagnosticsEmitter
 ) : AndroidPermissionSdk {
 
     override fun getStatus(permission: AppPermission, activity: Activity): PermissionStatus {
@@ -43,11 +46,17 @@ class DefaultAndroidPermissionSdk internal constructor(
         permission: AppPermission,
         activity: ComponentActivity
     ): PermissionResult {
-        preflightCheck(permission)?.let { return it }
+        preflightCheck(permission)?.let { result ->
+            diagnostics.emitRequestCompleted(permission, result)
+            return result
+        }
 
         requestTracker.markRequestStarted(permission)
         try {
-            return executeRequest(permission, activity)
+            diagnostics.emitRequestStarted(permission)
+            val result = executeRequest(permission, activity)
+            diagnostics.emitRequestCompleted(permission, result)
+            return result
         } finally {
             requestTracker.markRequestCompleted(permission)
         }
@@ -70,6 +79,7 @@ class DefaultAndroidPermissionSdk internal constructor(
         activity: ComponentActivity
     ): PermissionResult {
         val requestResult = requestCoordinator.request(permission, activity)
+        diagnostics.emitSystemResponseReceived(permission, requestResult.toMap())
         if (requestResult.isEmpty()) {
             return PermissionResult.Cancelled
         }

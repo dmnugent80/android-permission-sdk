@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import io.github.dmnugent80.androidpermissionsdk.api.AppPermission
+import io.github.dmnugent80.androidpermissionsdk.core.DiagnosticsEmitter
 import io.github.dmnugent80.androidpermissionsdk.core.PermissionRequestCoordinator
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
@@ -13,7 +14,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
-internal class ActivityResultPermissionRequestCoordinator : PermissionRequestCoordinator {
+internal class ActivityResultPermissionRequestCoordinator(
+    private val diagnostics: DiagnosticsEmitter = NoOpDiagnosticsEmitter
+) : PermissionRequestCoordinator {
     private val requestMutex = Mutex()
     private val requestId = AtomicLong(0L)
 
@@ -45,7 +48,8 @@ internal class ActivityResultPermissionRequestCoordinator : PermissionRequestCoo
                         }
 
                         launcher.launch(permission.androidPermissions)
-                    } catch (_: IllegalStateException) {
+                    } catch (e: IllegalStateException) {
+                        diagnostics.emitLauncherRegistrationFailed(permission, e)
                         continuation.resume(emptyMap())
                     }
                 }
